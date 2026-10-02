@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>AR Gelombang - Fisika XI</title>
+<script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
+<script>
+window.W={A:.5,L:4,f:1,mode:'T',play:true,speed:.5};
+AFRAME.registerComponent('wave',{
+ init(){
+  const T=AFRAME.THREE,geo=new T.SphereGeometry(.024,12,12),
+   mA=new T.MeshStandardMaterial({color:0x4fe3c8}),mG=new T.MeshStandardMaterial({color:0xffc857});
+  this.gT=new T.Group();this.gL=new T.Group();this.el.object3D.add(this.gT,this.gL);
+  this.T=[];this.L=[];this.t=0;
+  for(let i=0;i<=40;i++){const m=new T.Mesh(geo,i==8?mG:mA);if(i==8)m.scale.setScalar(1.7);this.gT.add(m);this.T.push(m)}
+  for(let r=-1;r<=1;r++)for(let i=0;i<=40;i++){const hi=i==16,m=new T.Mesh(geo,hi?mG:mA);if(hi)m.scale.setScalar(1.5);this.gL.add(m);this.L.push({m,r,i})}
+ },
+ tick(time,dt){
+  const w=window.W;if(w.play)this.t+=dt/1000*w.speed;
+  const k=2*Math.PI/w.L,om=2*Math.PI*w.f,t=this.t,both=w.mode=='B',showT=w.mode!='L',showL=w.mode!='T';
+  this.gT.visible=showT;this.gL.visible=showL;
+  this.gT.position.set(0,.28,both?-.3:0);this.gL.position.set(0,.28,both?.3:0);
+  if(showT)this.T.forEach((m,i)=>{const x=i*.25;m.position.set((x/10-.5)*1.6,w.A*.2*Math.sin(k*x-om*t),0)});
+  if(showL){const d=Math.min(w.A*.4,w.L*.13);this.L.forEach(o=>{const x=o.i*.25,s=d*Math.sin(k*x-om*t);o.m.position.set(((x+s)/10-.5)*1.6,0,o.r*.08)})}
+ }
+});
+</script>
+<style>
+:root{--bg:#0d2b3e;--ln:#1f5270;--tx:#f4ecd8;--mu:#9fbcc9;--aq:#4fe3c8;--go:#ffc857}
+html,body{margin:0;height:100%;overflow:hidden;font:16px/1.4 "Segoe UI",system-ui,sans-serif;color:var(--tx)}
+#hint{position:fixed;top:10px;left:10px;right:10px;z-index:10;background:rgba(13,43,62,.9);border:2px solid var(--ln);border-radius:14px;padding:.6rem .9rem;text-align:center}
+#hint a{color:var(--go)}
+#panel{position:fixed;left:0;right:0;bottom:0;z-index:10;background:rgba(13,43,62,.92);border-top:2px solid var(--ln);border-radius:18px 18px 0 0;padding:.7rem 1rem 1rem;max-height:48vh;overflow:auto}
+.hid{display:none!important}
+button{font:inherit;color:var(--tx);background:var(--bg);border:2px solid var(--ln);border-radius:12px;padding:.45em .8em;min-height:2.6em}
+button.on{background:var(--aq);color:#06222e;border-color:var(--aq);font-weight:700}
+.row{display:flex;gap:.5rem;margin-bottom:.4rem}.row button{flex:1}
+.lb{display:flex;justify-content:space-between;font-weight:600}.lb b{color:var(--go)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:12px;border-radius:8px;background:var(--ln);margin:.6rem 0 .5rem}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:32px;height:32px;border-radius:50%;background:var(--aq);border:4px solid var(--tx)}
+input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;background:var(--aq);border:4px solid var(--tx)}
+.ro{display:flex;justify-content:space-between;color:var(--mu);font-size:.95em}.ro b{color:var(--go)}
+#tg{position:fixed;right:10px;bottom:10px;z-index:11}
+</style></head><body>
+<div id="hint">Arahkan kamera ke marker Hiro. <a href="hiro-marker.png" target="_blank">Buka gambar marker</a> lalu cetak atau tampilkan di layar lain.</div>
+<div id="panel">
+ <div class="row"><button data-m="T" class="on">Transversal</button><button data-m="L">Longitudinal</button><button data-m="B">Keduanya</button></div>
+ <div id="sl"></div>
+ <div class="ro"><span>T = 1/f: <b id="rT"></b></span><span>v = λ·f: <b id="rV"></b></span><button id="bP">Jeda</button></div>
+</div>
+<button id="tg">Sembunyikan panel</button>
+<a-scene embedded vr-mode-ui="enabled:false" renderer="logarithmicDepthBuffer:true;alpha:true" arjs="trackingMethod:best;sourceType:webcam;debugUIEnabled:false;">
+ <a-entity light="type:ambient;intensity:.9"></a-entity>
+ <a-entity light="type:directional;intensity:.8" position="1 3 2"></a-entity>
+ <a-marker id="mk" preset="hiro"><a-entity wave></a-entity></a-marker>
+ <a-entity camera></a-entity>
+</a-scene>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],nf=n=>(+n).toLocaleString('id-ID',{maximumFractionDigits:2});
+const P=[['A','Amplitudo (A)','m',.1,1,.1],['L','Panjang gelombang (λ)','m',1,8,.5],['f','Frekuensi (f)','Hz',.5,4,.25]],out={};
+function upd(){P.forEach(([k])=>out[k].textContent=nf(W[k]));$('#rT').textContent=nf(1/W.f)+' s';$('#rV').textContent=nf(W.L*W.f)+' m/s'}
+P.forEach(([k,lb,u,mn,mx,st])=>{
+ const d=document.createElement('div');
+ d.innerHTML=`<div class="lb"><span>${lb}</span><b><i></i> ${u}</b></div><input type="range" min="${mn}" max="${mx}" step="${st}" value="${W[k]}">`;
+ $('#sl').append(d);out[k]=d.querySelector('i');d.querySelector('input').oninput=e=>{W[k]=+e.target.value;upd()};
+});
+upd();
+$$('[data-m]').forEach(b=>b.onclick=()=>{W.mode=b.dataset.m;$$('[data-m]').forEach(x=>x.classList.toggle('on',x==b))});
+$('#bP').onclick=()=>{W.play=!W.play;$('#bP').textContent=W.play?'Jeda':'Mainkan'};
+$('#tg').onclick=()=>{const h=$('#panel').classList.toggle('hid');$('#tg').textContent=h?'Tampilkan panel':'Sembunyikan panel'};
+const mk=$('#mk');
+mk.addEventListener('markerFound',()=>$('#hint').classList.add('hid'));
+mk.addEventListener('markerLost',()=>$('#hint').classList.remove('hid'));
+</script></body></html>

@@ -52,7 +52,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:32px;heigh
 <a-scene renderer="alpha:true" webxr="optionalFeatures:hit-test,dom-overlay;overlayElement:#ui;" ar-hit-test="target:#wv">
  <a-entity light="type:ambient;intensity:.9"></a-entity>
  <a-entity light="type:directional;intensity:.8" position="1 3 2"></a-entity>
- <a-entity id="wv" wave visible="false" scale=".4 .4 .4"></a-entity>
+ <a-entity id="wv" wave visible="false" scale=".6 .6 .6"></a-entity>
 </a-scene>
 <script>
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],nf=n=>(+n).toLocaleString('id-ID',{maximumFractionDigits:2});
@@ -70,7 +70,16 @@ $('#tg').onclick=()=>$('#panel').classList.toggle('hid');
 ['panel','tg','hint'].forEach(id=>$('#'+id).addEventListener('beforexrselect',e=>e.preventDefault()));
 const sc=$('a-scene'),wv=$('#wv');
 sc.addEventListener('ar-hit-test-select',()=>{wv.object3D.visible=true;$('#hint').classList.add('hid')});
-sc.addEventListener('enter-vr',()=>{$('#hint').textContent='Arahkan HP ke meja atau lantai. Ketuk layar saat lingkaran muncul untuk menaruh gelombang.'});
+sc.addEventListener('enter-vr',()=>{
+ $('#hint').textContent='Gelombang muncul di depanmu. Untuk memindahkan, arahkan ke meja dan ketuk layar saat lingkaran muncul.';
+ setTimeout(()=>{
+  const T=AFRAME.THREE,p=new T.Vector3(),d=new T.Vector3();
+  sc.camera.getWorldPosition(p);sc.camera.getWorldDirection(d);d.y=0;d.normalize();
+  wv.object3D.position.set(p.x+d.x*1.2,p.y-.6,p.z+d.z*1.2);
+  wv.object3D.visible=true;
+ },1000);
+ setTimeout(()=>$('#hint').classList.add('hid'),8000);
+});
 const msg='Perangkat atau browser ini belum mendukung AR WebXR. Gunakan HP Android dengan Chrome.';
 if(navigator.xr&&navigator.xr.isSessionSupported)navigator.xr.isSessionSupported('immersive-ar').then(ok=>{if(!ok)$('#hint').textContent=msg}).catch(()=>{});
 else $('#hint').textContent=msg;

@@ -8,19 +8,39 @@ window.W={A:.5,L:4,f:1,mode:'T',play:true,speed:.5};
 AFRAME.registerComponent('wave',{
  init(){
   const T=AFRAME.THREE,geo=new T.SphereGeometry(.024,12,12),
-   mA=new T.MeshStandardMaterial({color:0x4fe3c8}),mG=new T.MeshStandardMaterial({color:0xffc857});
+   mk=c=>new T.MeshStandardMaterial({color:c}),
+   mA=mk(0x4fe3c8),mG=mk(0xffc857);
+  this.mS=mk(0xffffff);this.mN=mk(0xff5d73);this.mP=mk(0xb48cff);
+  this.v=new T.Vector3();this.t=0;this.sel=this.p1=this.p2=null;
   this.gT=new T.Group();this.gL=new T.Group();this.el.object3D.add(this.gT,this.gL);
-  this.T=[];this.L=[];this.t=0;
-  for(let i=0;i<=40;i++){const m=new T.Mesh(geo,i==8?mG:mA);if(i==8)m.scale.setScalar(1.7);this.gT.add(m);this.T.push(m)}
-  for(let r=-1;r<=1;r++)for(let i=0;i<=40;i++){const hi=i==16,m=new T.Mesh(geo,hi?mG:mA);if(hi)m.scale.setScalar(1.5);this.gL.add(m);this.L.push({m,r,i})}
+  this.T=[];this.L=[];this.all=[];
+  const add=(g,m,o)=>{m.userData=o;g.add(m);this.all.push(m)};
+  for(let i=0;i<=40;i++){const m=new T.Mesh(geo,i==8?mG:mA);if(i==8)m.scale.setScalar(1.7);add(this.gT,m,{g:'T',i,b:m.material,s:i==8?1.7:1});this.T.push(m)}
+  for(let r=-1;r<=1;r++)for(let i=0;i<=40;i++){const hi=i==16,m=new T.Mesh(geo,hi?mG:mA);if(hi)m.scale.setScalar(1.5);add(this.gL,m,{g:'L',i,b:m.material,s:hi?1.5:1});this.L.push({m,r,i})}
+  this.ln=new T.Line(new T.BufferGeometry().setFromPoints([new T.Vector3(),new T.Vector3()]),new T.LineBasicMaterial({color:0xffffff}));
+  this.ln.frustumCulled=false;this.ln.visible=false;this.el.object3D.add(this.ln);
+ },
+ pick(cam,x,y){ // bola terdekat dari titik ketuk (jarak layar), toleransi 48 px
+  let best=null,bd=48*48;const v=this.v;
+  this.all.forEach(m=>{if(!m.parent.visible)return;m.getWorldPosition(v);v.project(cam);if(v.z>1)return;
+   const dx=(v.x+1)/2*innerWidth-x,dy=(1-v.y)/2*innerHeight-y,d=dx*dx+dy*dy;if(d<bd){bd=d;best=m}});
+  return best;
  },
  tick(time,dt){
   const w=window.W;if(w.play)this.t+=dt/1000*w.speed;
-  const k=2*Math.PI/w.L,om=2*Math.PI*w.f,t=this.t,both=w.mode=='B',showT=w.mode!='L',showL=w.mode!='T';
-  this.gT.visible=showT;this.gL.visible=showL;
+  const k=2*Math.PI/w.L,om=2*Math.PI*w.f,t=this.t,M=w.mode,both=M=='B';
+  this.gT.visible=M!='L';this.gL.visible=M=='L'||both;
   this.gT.position.set(0,.28,both?-.3:0);this.gL.position.set(0,.28,both?.3:0);
-  if(showT)this.T.forEach((m,i)=>{const x=i*.25;m.position.set((x/10-.5)*1.6,w.A*.2*Math.sin(k*x-om*t),0)});
-  if(showL){const d=Math.min(w.A*.4,w.L*.13);this.L.forEach(o=>{const x=o.i*.25,s=d*Math.sin(k*x-om*t);o.m.position.set(((x+s)/10-.5)*1.6,0,o.r*.08)})}
+  if(this.gT.visible)this.T.forEach((m,i)=>{const x=i*.25;
+   m.position.set((x/10-.5)*1.6,M=='S'?w.A*.4*Math.sin(k*x)*Math.cos(om*t):w.A*.2*Math.sin(k*x-om*t),0)});
+  if(this.gL.visible){const d=Math.min(w.A*.4,w.L*.13);this.L.forEach(o=>{const x=o.i*.25,s=d*Math.sin(k*x-om*t);o.m.position.set(((x+s)/10-.5)*1.6,0,o.r*.08)})}
+  this.all.forEach(m=>{const u=m.userData;let mt=u.b;
+   if(w.mode=='S'&&u.g=='T'){const s=Math.abs(Math.sin(k*u.i*.25));if(s<.12)mt=this.mN;else if(s>.98)mt=this.mP}
+   const pk=m===this.sel||m===this.p1||m===this.p2;
+   m.material=pk?this.mS:mt;m.scale.setScalar(pk?2:u.s)});
+  const a=this.p1,b=this.p2;this.ln.visible=!!(a&&b);
+  if(a&&b){const p=this.ln.geometry.attributes.position,v=this.v;
+   [a,b].forEach((m,j)=>{m.getWorldPosition(v);this.el.object3D.worldToLocal(v);p.setXYZ(j,v.x,v.y,v.z)});p.needsUpdate=true}
  }
 });
 </script>
@@ -28,12 +48,16 @@ AFRAME.registerComponent('wave',{
 :root{--bg:#0d2b3e;--ln:#1f5270;--tx:#f4ecd8;--mu:#9fbcc9;--aq:#4fe3c8;--go:#ffc857}
 html,body{margin:0;height:100%;overflow:hidden;font:16px/1.4 "Segoe UI",system-ui,sans-serif;color:var(--tx);background:var(--bg)}
 #ui{position:fixed;inset:0;z-index:10;pointer-events:none}
-#hint{position:absolute;top:10px;left:10px;right:150px;pointer-events:auto;background:rgba(13,43,62,.92);border:2px solid var(--ln);border-radius:14px;padding:.6rem .9rem}
+#touch{position:absolute;inset:0;touch-action:none}
+#touch.act{pointer-events:auto}
+#top{position:absolute;top:10px;left:10px;right:100px;display:flex;flex-direction:column;gap:8px}
+#hint,#inf{pointer-events:auto;background:rgba(13,43,62,.92);border:2px solid var(--ln);border-radius:14px;padding:.6rem .9rem}
+#inf{border-color:var(--aq)}
 #panel{position:absolute;left:0;right:0;bottom:0;pointer-events:auto;background:rgba(13,43,62,.92);border-top:2px solid var(--ln);border-radius:18px 18px 0 0;padding:.7rem 1rem 5rem;max-height:50vh;overflow:auto}
 .hid{display:none!important}
 button{font:inherit;color:var(--tx);background:var(--bg);border:2px solid var(--ln);border-radius:12px;padding:.45em .8em;min-height:2.6em}
 button.on{background:var(--aq);color:#06222e;border-color:var(--aq);font-weight:700}
-.row{display:flex;gap:.5rem;margin-bottom:.4rem}.row button{flex:1}
+.row{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.4rem}.row button{flex:1 1 28%}
 .lb{display:flex;justify-content:space-between;font-weight:600}.lb b{color:var(--go)}
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:12px;border-radius:8px;background:var(--ln);margin:.6rem 0 .5rem}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:32px;height:32px;border-radius:50%;background:var(--aq);border:4px solid var(--tx)}
@@ -41,10 +65,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:32px;heigh
 #tg{position:absolute;top:10px;right:10px;pointer-events:auto}
 </style></head><body>
 <div id="ui">
- <div id="hint">Tekan tombol AR di kanan bawah, arahkan HP ke meja, lalu ketuk layar saat lingkaran muncul untuk menaruh gelombang.</div>
+ <div id="touch"></div>
+ <div id="top">
+  <div id="hint">Tekan tombol AR di kanan bawah, arahkan HP ke meja, lalu ketuk layar saat lingkaran muncul untuk menaruh gelombang.</div>
+  <div id="inf" class="hid"></div>
+ </div>
  <button id="tg">Panel</button>
  <div id="panel">
-  <div class="row"><button data-m="T" class="on">Transversal</button><button data-m="L">Longitudinal</button><button data-m="B">Keduanya</button></div>
+  <div class="row"><button data-m="T" class="on">Transversal</button><button data-m="L">Longitudinal</button><button data-m="B">Keduanya</button><button data-m="S">Berdiri</button></div>
+  <div class="row"><button data-t="I" class="on">Info partikel</button><button data-t="U">Ukur jarak</button><button id="bM">Pindahkan</button></div>
   <div id="sl"></div>
   <div class="ro"><span>T = 1/f: <b id="rT"></b></span><span>v = λ·f: <b id="rV"></b></span><button id="bP">Jeda</button></div>
  </div>
@@ -64,21 +93,60 @@ P.forEach(([k,lb,u,mn,mx,st])=>{
  $('#sl').append(d);out[k]=d.querySelector('i');d.querySelector('input').oninput=e=>{W[k]=+e.target.value;upd()};
 });
 upd();
+const sc=$('a-scene'),wv=$('#wv'),tl=$('#touch'),wc=()=>wv.components.wave;
+let tool='I';
+const say=h=>{$('#inf').innerHTML=h;$('#inf').classList.remove('hid')};
+function setTool(t){
+ tool=t;const c=wc();if(c)c.sel=c.p1=c.p2=null;
+ $$('[data-t]').forEach(x=>x.classList.toggle('on',x.dataset.t==t));
+ say(t=='I'?'Ketuk salah satu bola untuk melihat simpangan, arah getar, dan fase. Geser satu jari = putar, cubit dua jari = besar/kecil.':'Ketuk dua puncak berurutan untuk mengukur jarak. Tekan Jeda dulu agar mudah.');
+}
 $$('[data-m]').forEach(b=>b.onclick=()=>{W.mode=b.dataset.m;$$('[data-m]').forEach(x=>x.classList.toggle('on',x==b))});
+$$('[data-t]').forEach(b=>b.onclick=()=>setTool(b.dataset.t));
 $('#bP').onclick=()=>{W.play=!W.play;$('#bP').textContent=W.play?'Jeda':'Mainkan'};
 $('#tg').onclick=()=>$('#panel').classList.toggle('hid');
-['panel','tg','hint'].forEach(id=>$('#'+id).addEventListener('beforexrselect',e=>e.preventDefault()));
-const sc=$('a-scene'),wv=$('#wv');
-sc.addEventListener('ar-hit-test-select',()=>{wv.object3D.visible=true;$('#hint').classList.add('hid')});
+$('#bM').onclick=()=>{tl.classList.remove('act');$('#inf').classList.add('hid');$('#hint').textContent='Arahkan ke meja, lalu ketuk layar saat lingkaran muncul.';$('#hint').classList.remove('hid')};
+['panel','tg','hint','inf','touch'].forEach(id=>$('#'+id).addEventListener('beforexrselect',e=>e.preventDefault()));
+
+// penjelasan partikel (diperbarui terus karena gelombang bergerak)
+function describe(m){
+ const u=m.userData,x=u.i*.25,k=2*Math.PI/W.L,om=2*Math.PI*W.f,t=wc().t,ph=k*x-om*t,c=Math.cos(ph),s=Math.sin(ph);
+ if(W.mode=='S'){const a=Math.abs(Math.sin(k*x));
+  return `<b>x = ${nf(x)} m</b> · y = ${nf(2*W.A*Math.sin(k*x)*Math.cos(om*t))} m<br>`+(a<.12?'Simpul: hampir tidak bergetar.':a>.98?`Perut: amplitudo maksimum 2A = ${nf(2*W.A)} m.`:`Amplitudo di titik ini ${nf(2*W.A*a)} m.`)}
+ const still=Math.abs(c)<.15,deg=nf(((ph*180/Math.PI)%360+360)%360)+'°';
+ if(u.g=='T')return `<b>Transversal, x = ${nf(x)} m</b><br>Simpangan y = ${nf(W.A*s)} m · fase ${deg}<br>Partikel ${still?'berhenti sesaat (di puncak/lembah)':c<0?'bergerak naik':'bergerak turun'}, tegak lurus arah rambat (→).`;
+ return `<b>Longitudinal, x = ${nf(x)} m</b><br>Simpangan = ${nf(W.A*s)} m · fase ${deg}<br>Partikel ${still?'berhenti sesaat':c<0?'bergerak ke kanan':'bergerak ke kiri'}, sejajar arah rambat (→). Daerah: ${c<-.7?'rapatan':c>.7?'renggangan':'peralihan'}.`;
+}
+setInterval(()=>{const c=wc();if(tool=='I'&&c&&c.sel)say(describe(c.sel))},150);
+
+function tap(x,y){
+ const c=wc(),m=c.pick(sc.camera,x,y);if(!m)return;
+ if(tool=='I'){c.sel=m;say(describe(m));return}
+ if(c.p1&&c.p2){c.p1=m;c.p2=null}else if(!c.p1)c.p1=m;else c.p2=m;
+ if(!c.p2)say(`Titik 1 di x = ${nf(c.p1.userData.i*.25)} m. Ketuk titik 2.`);
+ else say(`Jarak = <b>${nf(Math.abs(c.p2.userData.i-c.p1.userData.i)*.25)} m</b>. Bandingkan dengan λ pada slider (${nf(W.L)} m).`);
+}
+// gestur: 1 jari geser = putar, 2 jari cubit = skala, ketuk = pilih bola
+const pts=new Map();let st={};
+const dist=()=>{const a=[...pts.values()];return a.length<2?0:Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1])};
+tl.onpointerdown=e=>{pts.set(e.pointerId,[e.clientX,e.clientY]);tl.setPointerCapture(e.pointerId);
+ if(pts.size==1)st={x:e.clientX,y:e.clientY,mv:0};else st={...st,d:dist(),s:wv.object3D.scale.x,mv:99}};
+tl.onpointermove=e=>{const p=pts.get(e.pointerId);if(!p)return;const dx=e.clientX-p[0];p[0]=e.clientX;p[1]=e.clientY;
+ if(pts.size==1){st.mv=Math.max(st.mv,Math.hypot(e.clientX-st.x,e.clientY-st.y));if(st.mv>=10)wv.object3D.rotation.y+=dx*.01}
+ else if(st.d){const s=Math.min(2,Math.max(.2,st.s*dist()/st.d));wv.object3D.scale.setScalar(s)}};
+tl.onpointerup=e=>{if(pts.size==1&&st.mv<10)tap(e.clientX,e.clientY);pts.delete(e.pointerId)};
+tl.onpointercancel=e=>pts.delete(e.pointerId);
+
+const ready=()=>{tl.classList.add('act');$('#hint').classList.add('hid');setTool(tool)};
+sc.addEventListener('ar-hit-test-select',()=>{wv.object3D.visible=true;ready()});
 sc.addEventListener('enter-vr',()=>{
- $('#hint').textContent='Gelombang muncul di depanmu. Untuk memindahkan, arahkan ke meja dan ketuk layar saat lingkaran muncul.';
+ $('#hint').textContent='Gelombang muncul di depanmu. Untuk memindahkan, tekan Pindahkan di panel.';
  setTimeout(()=>{
   const T=AFRAME.THREE,p=new T.Vector3(),d=new T.Vector3();
   sc.camera.getWorldPosition(p);sc.camera.getWorldDirection(d);d.y=0;d.normalize();
   wv.object3D.position.set(p.x+d.x*1.2,p.y-.6,p.z+d.z*1.2);
-  wv.object3D.visible=true;
+  wv.object3D.visible=true;ready();
  },1000);
- setTimeout(()=>$('#hint').classList.add('hid'),8000);
 });
 const msg='Perangkat atau browser ini belum mendukung AR WebXR. Gunakan HP Android dengan Chrome.';
 if(navigator.xr&&navigator.xr.isSessionSupported)navigator.xr.isSessionSupported('immersive-ar').then(ok=>{if(!ok)$('#hint').textContent=msg}).catch(()=>{});
